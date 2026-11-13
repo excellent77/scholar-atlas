@@ -1,0 +1,23 @@
+import{component,safeName,digest}from'./core.js';
+export async function writeFile(dir,name,data){let h=await dir.getFileHandle(component(name),{create:true}),w=await h.createWritable();try{await w.write(data);await w.close()}catch(e){try{await w.abort()}catch{}throw e}}
+export async function readJSON(dir,name){let h=await dir.getFileHandle(component(name));return JSON.parse(await(await h.getFile()).text())}
+export async function maybeJSON(dir,name){try{return await readJSON(dir,name)}catch(e){if(e.name==='NotFoundError')return null;throw e}}
+export class Workspace{
+ constructor(root){this.root=root;this.settings={version:2,interests:''}}
+ static async open(parent){let root=await parent.getDirectoryHandle('scholar-atlas-data',{create:true}),w=new Workspace(root),s=await maybeJSON(root,'workspace.json');if(s){if(s.version!==2)throw Error('資料版本不相容');w.settings=s}else await w.saveSettings();await root.getDirectoryHandle('professors',{create:true});return w}
+ async saveSettings(){await writeFile(this.root,'workspace.json',JSON.stringify(this.settings,null,2))}
+ async profDir(p){return(await this.root.getDirectoryHandle('professors')).getDirectoryHandle(component(p.folder))}
+ async paperDir(p,q,create=false){return(await(await this.profDir(p)).getDirectoryHandle('papers',{create})).getDirectoryHandle(component(q.id),{create})}
+ async list(){let all=[],dir=await this.root.getDirectoryHandle('professors');for await(let [name,h]of dir.entries()){if(h.kind!=='directory')continue;let p=await maybeJSON(h,'profile.json');if(p){if(p.version!==2||!Array.isArray(p.papers)||typeof p.id!=='string'||!/^[-A-Za-z0-9_]+$/.test(p.id)||['name','school','program','url','notes'].some(k=>typeof p[k]!=='string'))throw Error('教授資料格式不符：'+name);p.folder=name;for(let q of p.papers){component(q.id);if(!/^[-A-Za-z0-9_]+$/.test(q.id)||typeof q.title!=='string'||(q.year!=null&&(!Number.isInteger(q.year)||q.year<1900||q.year>2200)))throw Error('論文資料格式不符')}all.push(p)}}return all.sort((a,b)=>a.name.localeCompare(b.name))}
+ async addProfessor(info){let id=crypto.randomUUID(),p={...info,id,folder:safeName(info.name)+'-'+id,version:2,papers:[]};await(await this.root.getDirectoryHandle('professors')).getDirectoryHandle(p.folder,{create:true});await this.saveProfessor(p);return p}
+ async saveProfessor(p){await writeFile(await this.profDir(p),'profile.json',JSON.stringify(p,null,2))}
+ async addPaper(p,q,file,pages){let dir=await this.paperDir(p,q,true);if(file)await writeFile(dir,'original.pdf',file);if(pages)await writeFile(dir,'pages.json',JSON.stringify(pages,null,2));await writeFile(dir,'paper.json',JSON.stringify(q,null,2));let updated={...p,papers:[...p.papers,q]};await this.saveProfessor(updated);Object.assign(p,updated)}
+ async savePaper(p,q){let dir=await this.paperDir(p,q);await writeFile(dir,'paper.json',JSON.stringify(q,null,2));await this.saveProfessor(p)}
+ async pages(p,q){let pages=await readJSON(await this.paperDir(p,q),'pages.json');if(!Array.isArray(pages)||pages.some((x,i)=>x.page!==i+1||typeof x.text!=='string'))throw Error('逐頁文字檔格式不符');if(q.textHash&&await digest(JSON.stringify(pages))!==q.textHash)throw Error('逐頁文字已被外部修改，請重新匯入為新論文');return pages}
+ async pdf(p,q){let f=await(await(await this.paperDir(p,q)).getFileHandle('original.pdf')).getFile();if(q.hash&&await digest(await f.arrayBuffer())!==q.hash)throw Error('PDF 已被外部修改，引用不再可靠，請新增該版本為新論文');return f}
+ async analysis(p,q){return maybeJSON(await this.paperDir(p,q),'analysis.json')}
+ async saveAnalysis(p,q,result,md){let dir=await this.paperDir(p,q);await writeFile(dir,'analysis.json',JSON.stringify(result,null,2));await writeFile(dir,'analysis.md',md);q.analysisAt=result.createdAt;q.analysisCount=result.claims.length;await this.savePaper(p,q)}
+ async synthesis(p){return maybeJSON(await this.profDir(p),'synthesis.json')}
+ async saveSynthesis(p,result,md){let dir=await this.profDir(p);await writeFile(dir,'synthesis.json',JSON.stringify(result,null,2));await writeFile(dir,'synthesis.md',md)}
+ async archive(p,q){let from=q?await this.paperDir(p,q):await this.profDir(p),trash=await this.root.getDirectoryHandle('trash',{create:true}),name=(q?q.id:p.id)+'-'+Date.now(),to=await trash.getDirectoryHandle(name,{create:true});async function copy(a,b){for await(let[n,h]of a.entries()){if(h.kind==='directory')await copy(h,await b.getDirectoryHandle(n,{create:true}));else await writeFile(b,n,await h.getFile())}}await copy(from,to);if(q){let updated={...p,papers:p.papers.filter(x=>x.id!==q.id)};await this.saveProfessor(updated);Object.assign(p,updated);await(await(await this.profDir(p)).getDirectoryHandle('papers')).removeEntry(q.id,{recursive:true})}else await(await this.root.getDirectoryHandle('professors')).removeEntry(p.folder,{recursive:true})}
+}

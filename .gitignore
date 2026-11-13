@@ -2,5 +2,7 @@ node_modules/
 .sites-runtime/
 .env*
 *.pdf
+scholar-atlas-data/
 private-data/
+dist/vendor/
 dist/scholar-atlas-source.zip

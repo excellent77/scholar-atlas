@@ -1,1 +1,1 @@
-{"name":"scholar-atlas","version":"1.0.0","private":true,"type":"module","scripts":{"test":"node --test tests/*.test.js","build":"node scripts/package.mjs"}}
+{"name":"scholar-atlas","version":"2.0.0","private":true,"type":"module","scripts":{"test":"node --test tests/*.test.js","build":"node scripts/package.mjs"},"dependencies":{"pdfjs-dist":"6.5.438"}}
