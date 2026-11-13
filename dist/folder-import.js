@@ -1,4 +1,4 @@
-import {digest} from './core.js?v=b17e7fcfd9a3a31c';
+import {digest} from './core.js?v=db3d55b76c6a82dc';
 export async function scanFolder(root){
  const files=[];let ignored=0;
  async function visit(dir,path=''){

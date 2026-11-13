@@ -1,4 +1,4 @@
-import{component,safeName,digest}from'./core.js?v=b17e7fcfd9a3a31c';
+import{component,safeName,digest}from'./core.js?v=db3d55b76c6a82dc';
 export async function writeFile(dir,name,data){let h=await dir.getFileHandle(component(name),{create:true}),w=await h.createWritable();try{await w.write(data);await w.close()}catch(e){try{await w.abort()}catch{}throw e}}
 export async function readJSON(dir,name){let h=await dir.getFileHandle(component(name));return JSON.parse(await(await h.getFile()).text())}
 export async function maybeJSON(dir,name){try{return await readJSON(dir,name)}catch(e){if(e.name==='NotFoundError')return null;throw e}}
