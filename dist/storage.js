@@ -1,10 +1,10 @@
-import{component,safeName,digest}from'./core.js';
+import{component,safeName,digest}from'./core.js?v=b17e7fcfd9a3a31c';
 export async function writeFile(dir,name,data){let h=await dir.getFileHandle(component(name),{create:true}),w=await h.createWritable();try{await w.write(data);await w.close()}catch(e){try{await w.abort()}catch{}throw e}}
 export async function readJSON(dir,name){let h=await dir.getFileHandle(component(name));return JSON.parse(await(await h.getFile()).text())}
 export async function maybeJSON(dir,name){try{return await readJSON(dir,name)}catch(e){if(e.name==='NotFoundError')return null;throw e}}
 export class Workspace{
  constructor(root){this.root=root;this.settings={version:2,interests:''}}
- static async open(parent){let root=await parent.getDirectoryHandle('scholar-atlas-data',{create:true}),w=new Workspace(root),s=await maybeJSON(root,'workspace.json');if(s){if(s.version!==2)throw Error('資料版本不相容');w.settings=s}else await w.saveSettings();await root.getDirectoryHandle('professors',{create:true});return w}
+ static async open(parent){let direct=await maybeJSON(parent,'workspace.json');let root=direct?.version===2?parent:await parent.getDirectoryHandle('scholar-atlas-data',{create:true}),w=new Workspace(root),s=await maybeJSON(root,'workspace.json');if(s){if(s.version!==2)throw Error('資料版本不相容');w.settings=s}else await w.saveSettings();await root.getDirectoryHandle('professors',{create:true});return w}
  async saveSettings(){await writeFile(this.root,'workspace.json',JSON.stringify(this.settings,null,2))}
  async profDir(p){return(await this.root.getDirectoryHandle('professors')).getDirectoryHandle(component(p.folder))}
  async paperDir(p,q,create=false){return(await(await this.profDir(p)).getDirectoryHandle('papers',{create})).getDirectoryHandle(component(q.id),{create})}

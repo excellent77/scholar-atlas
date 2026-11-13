@@ -1,4 +1,4 @@
-import{chunks,validateClaims,CATEGORIES,fingerprint}from'./core.js';
+import{chunks,validateClaims,CATEGORIES,fingerprint}from'./core.js?v=b17e7fcfd9a3a31c';
 const BASE='https://generativelanguage.googleapis.com/v1beta/';
 export async function listModels(key,signal){let models=[],next='';do{let r=await fetch(BASE+'models?pageSize=100'+(next?'&pageToken='+encodeURIComponent(next):''),{headers:{'x-goog-api-key':key},signal});if(!r.ok)throw Error(`Gemini 連線失敗（HTTP ${r.status}）。請確認金鑰、權限與額度。`);let j=await r.json();models.push(...(j.models||[]).filter(m=>m.supportedGenerationMethods?.includes('generateContent')).map(m=>m.name.replace('models/','')));next=j.nextPageToken||''}while(next);return models}
 const citation={type:'OBJECT',properties:{paperId:{type:'STRING'},page:{type:'INTEGER'},quote:{type:'STRING'}},required:['paperId','page','quote']};
