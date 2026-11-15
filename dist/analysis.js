@@ -1,6 +1,7 @@
 import{chunks,validateClaims,CATEGORIES,fingerprint,digest}from'./core.js';
-import{generate,GeminiError,checkAbort,delay}from'./gemini-client.js';
-export{generate,listModels}from'./gemini-client.js';
+import{GeminiError,checkAbort,delay}from'./gemini-client.js';
+import{generate}from'./ai-client.js';
+export{generate,listModels}from'./ai-client.js';
 const REV='resumable-short-claims-1';
 const rule='citations 含 paperId、page（實際 PDF 頁次，從 1 開始）、quote（逐字 12–160 字元，不使用省略號）。每條 1–2 個引用。text 最多 180 字；gaps 最多 300 字。原文事實 kind=evidence；推論 kind=inference。引用存在不代表結論正確。';
 function fail(code,message){throw new GeminiError(code,message)}
@@ -24,7 +25,7 @@ function checked(raw,docs,sections){
 }
 export async function analyzePaper(config,q,pages,onProgress=()=>{},signal,call=generate){
  const pieces=chunks(pages,6000);if(!pieces.length)fail('NO_TEXT','PDF 沒有可讀文字；需要先 OCR。');
- const identity=await digest(JSON.stringify([REV,'paper',config.model,q.id,q.hash,q.title,pages]));
+ const identity=await digest(JSON.stringify([REV,'paper',config.provider==='openai'?'openai:'+config.model:config.model,q.id,q.hash,q.title,pages]));
  const state=await checkpoint(config,identity);let calls=0,done=0;const gathered=[];
  const notify=text=>onProgress(`已完成 ${done} 段 · ${text}`);
  async function visit(piece,id,depth=0){
@@ -47,14 +48,14 @@ export async function analyzePaper(config,q,pages,onProgress=()=>{},signal,call=
  for(let i=0;i<pieces.length;i++)await visit(pieces[i],String(i+1));
  const seen=new Set(),claims=gathered.flatMap(r=>r.claims).filter(c=>{const k=c.section+c.text;if(seen.has(k))return false;seen.add(k);return true});
  if(!claims.length)fail('CITATION','沒有任何主張通過原文引用核對；請檢查文字或更換模型。');
- return {version:2,model:config.model,createdAt:new Date().toISOString(),pdfHash:q.hash,claims,rejected:gathered.flatMap(r=>r.rejected),coverage:`${pages.length} 個 PDF 頁面；${done} 個片段均已完成（含接續進度）。`,gaps:['未執行 OCR 或圖表視覺分析；文字稀少頁：'+(pages.filter(p=>p.text.trim().length<30).map(p=>p.page).join(', ')||'無'),...gathered.map(r=>r.gaps).filter(Boolean)].join('\n')};
+ return {version:2,provider:config.provider||'gemini',model:config.model,createdAt:new Date().toISOString(),pdfHash:q.hash,claims,rejected:gathered.flatMap(r=>r.rejected),coverage:`${pages.length} 個 PDF 頁面；${done} 個片段均已完成（含接續進度）。`,gaps:['未執行 OCR 或圖表視覺分析；文字稀少頁：'+(pages.filter(p=>p.text.trim().length<30).map(p=>p.page).join(', ')||'無'),...gathered.map(r=>r.gaps).filter(Boolean)].join('\n')};
 }
 export async function synthesize(config,p,docs,interests,onProgress=()=>{},signal,call=generate){
  if(docs.length<2)fail('INPUT','至少需要兩篇已完成原文分析的論文');
  const material=docs.map(d=>({paperId:d.id,title:d.title,year:d.year,claims:d.analysis.claims})),serialized=JSON.stringify(material);
  if(serialized.length>60000)fail('INPUT_TOO_LARGE','概要材料超過 60,000 字元，請減少本次選取論文；不會截斷資料。');
  const sections=['themes','evolution','methods',...(interests?.trim()?['fit']:[]),'questions'];
- const identity=await digest(JSON.stringify([REV,'synthesis',config.model,p.name,interests,material]));
+ const identity=await digest(JSON.stringify([REV,'synthesis',config.provider==='openai'?'openai:'+config.model:config.model,p.name,interests,material]));
  const state=await checkpoint(config,identity),all=[],rejected=[],gaps=[];
  for(let i=0;i<sections.length;i++){
   const section=sections[i];checkAbort(signal);let raw=state.completed[section];
@@ -67,5 +68,5 @@ export async function synthesize(config,p,docs,interests,onProgress=()=>{},signa
   state.completed[section]={claims:accepted,gaps:v.gaps};await save(config,state);all.push(...accepted);rejected.push(...v.rejected);gaps.push(v.gaps);onProgress(`${section} 已保存`);
  }
  if(!all.length)fail('CITATION','跨論文概要未產生可核對的引用');
- return {version:2,model:config.model,createdAt:new Date().toISOString(),claims:all,rejected,gaps:gaps.filter(Boolean).join('\n')+'\n僅依所選論文；引文核對不等同語意驗證。',coverage:`${docs.length} 篇論文；${sections.length} 個主題均已完成。`,fingerprint:fingerprint(p,interests),paperIds:docs.map(d=>d.id)};
+ return {version:2,provider:config.provider||'gemini',model:config.model,createdAt:new Date().toISOString(),claims:all,rejected,gaps:gaps.filter(Boolean).join('\n')+'\n僅依所選論文；引文核對不等同語意驗證。',coverage:`${docs.length} 篇論文；${sections.length} 個主題均已完成。`,fingerprint:fingerprint(p,interests),paperIds:docs.map(d=>d.id)};
 }
