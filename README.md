@@ -38,7 +38,6 @@ API key 可在 https://aistudio.google.com/apikey 管理。沒有 key 時，仍�
 ```bash
 npm ci
 npm run build
-npm test
 python3 -m http.server 8000 --directory dist
 ```
 
