@@ -10,3 +10,8 @@ SHA256：Paper.hash 對應 original.pdf；Paper.textHash 對應 JSON.stringify(p
 單篇完成後儲存 analysis.json / analysis.md，更新 profile 和 paper 的 analysisAt。跨篇 synthesis 保存 fingerprint（教授資訊、研究方向、論文 ID／title／year／source／hash／analysisAt），變動時 UI 提示需重新分析。
 
 不自動遷移 v1 範例或 private browser data；既有資料保留原位。沒有 key 可使用本機工作區，但沒有 AI 結果。
+
+
+
+## 可恢復分析進度
+analysis-progress.json（論文目錄）、synthesis-progress.json（教授目錄）：{format:1,identity:SHA256,completed:Record<taskId,{claims,gaps}>,splits:Record<taskId,true>}。僅保存通過引用核對的結果，不保存 API 金鑰。identity 包含提示規則識別、模型與原文／概要材料。不是最終報告，不能以此將論文標成已分析。
