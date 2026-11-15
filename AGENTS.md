@@ -16,7 +16,7 @@ GitHub Pages 用 `.github/workflows/pages.yml`，Source 設 GitHub Actions。不
 - dist/app.js：操作流程、表單、原文檢視、引用回查。不得把模型結果直接作 HTML。
 - dist/storage.js：File System Access API，資料落在使用者選取目錄；沒有後端資料庫。
 - dist/pdf.js：PDF.js 本機逐頁擷取，不執行 PDF JavaScript，不宣稱已理解圖表。
-- dist/analysis.js：真實 Gemini HTTP 呼叫、片段分析與跨論文整合，不包含模型假回覆。
+- dist/analysis.js：共用片段分析與跨論文整合，不包含模型假回覆。
 - dist/core.js：純函式、片段分割、引用核對、指紋、Markdown 輸出。
 - dist/zip.js：將磁碟實際內容匯出 ZIP。
 - dist/vendor/：build 生成，不手改、不提交；PDF.js 授權一起打包。
@@ -56,9 +56,9 @@ Claim：{section,kind:'evidence'|'inference',text,citations:[{paperId,page,quote
 10. 研究方向、教授資料與論文分析更新會使 synthesis 指紋失效；UI 標記需重新分析。
 
 ## 真實模型與金鑰
-目前是使用者自帶 Gemini API key（BYOK）。輸入值只存在分頁記憶體，不得寫入程式、localStorage、檔案、日誌、URL 或任何匯出內容；不得內嵌開發者共用金鑰。請求只向固定 Google Gemini HTTPS 端點送出。
+目前是使用者自帶 Gemini 或 OpenAI API key（BYOK）。輸入值只存在分頁記憶體，不得寫入程式、localStorage、檔案、日誌、URL 或任何匯出內容；不得內嵌開發者共用金鑰。請求只向所選服務商的固定 HTTPS 端點送出（Google Gemini 或 api.openai.com）；不得將一家的金鑰送到另一家。
 列出帳戶可用模型，不臆測一個永久有效的模型名稱。生成須檢查 HTTP 狀態、STOP finishReason、JSON 格式與引用。429、403、超時、取消、截斷不能顯示成功，也不能偷偷改用假結果。
-分析前透過確認畫面告知會送出哪些論文文字、研究方向、模型與 API 額度。模型清單查詢與連線測試不傳研究資料。180 秒請求逾時，提供取消，不自動重試付費請求。
+分析前透過確認畫面告知會送出哪些論文文字、研究方向、模型與 API 額度。模型清單查詢與連線測試不傳研究資料。180 秒請求逾時，提供取消。僅在分析前已告知用量影響後，對 500／502／503／504 最多重試兩次；不得無限重試。逾時、網路中斷、429、權限錯誤與安全攔截不自動重送。
 此設計是使用者在自己分頁輸入自己的金鑰，不是在公開網站暴露部署者金鑰。新增多人後端時需重新設計身份、權限、秘密與使用額度。
 
 ## 安全與儲存規則
@@ -72,7 +72,7 @@ Claim：{section,kind:'evidence'|'inference',text,citations:[{paperId,page,quote
 2. 資料／分析邏輯放專責模組，app.js 只處理 UI 編排。
 3. 所有結論都能回查原文；缺資料顯示缺口。
 4. 加入對應失敗測試；真實模型未配置時報告未實測，不把 mock 通過說成雲端模型成功。
-5. npm run build、npm test，完成瀏覽器檢查；修改 docs、README 與 SUBMISSION。
+5. npm run build、npm test，完成瀏覽器檢查；修改 docs 與 README。
 6. 更新現有 Sites project_id，不建立替代站點；只有推送後的同一份來源能發布。
 
 ## 延伸範例
@@ -87,7 +87,26 @@ Claim：{section,kind:'evidence'|'inference',text,citations:[{paperId,page,quote
 
 
 ## v2.2 引導流程與 API 使用
-作業沒有要求繳交開發者 API 金鑰。此專案採使用者自帶 Gemini 金鑰：匯入、閱讀、編輯、筆記、匯出及查看已儲存分析不需金鑰；新生成的論文分析與研究概要需金鑰。不得將金鑰上傳 GitHub、附於作業或包進下載檔。
-首頁分成「匯入一位教授的資料夾」及「開啟既有研究庫」。教授頁依 PDF、模型及分析狀態提供下一步，邏輯位於 dist/workflow.js。設定頁保留教授位置並提供返回按鈕。批次分析只處理尚未成功分析的 PDF，一次明確確認傳送清單，逐篇保存；遇到失敗停止後續呼叫，不自動重試，列出成功、失敗及未處理。需人工核對語意，不能以完成分析暗示結論必然正確。
+作業沒有要求繳交開發者 API 金鑰。此專案採使用者自帶 Gemini 或 OpenAI 金鑰：匯入、閱讀、編輯、筆記、匯出及查看已儲存分析不需金鑰；新生成的論文分析與研究概要需金鑰。不得將金鑰上傳 GitHub、附於作業或包進下載檔。
+首頁分成「匯入一位教授的資料夾」及「開啟既有研究庫」。教授頁依 PDF、模型及分析狀態提供下一步，邏輯位於 dist/workflow.js。設定頁保留教授位置並提供返回按鈕。批次分析只處理尚未成功分析的 PDF，一次明確確認傳送清單，逐篇保存；遇到無法恢復的失敗停止後續論文，列出成功、失敗及未處理；暫時性服務錯誤依有限重試規則處理。需人工核對語意，不能以完成分析暗示結論必然正確。
 研究概要頁可直接編輯、儲存申請方向，至少勾選兩篇已分析論文後生成。這些操作規則應沿用於日後新增頁面；新增功能必須保留當前教授位置與可返回路徑。
 課堂展示可先示範不需金鑰的匯入與閱讀；分析功能可由操作者在自己電腦輸入金鑰後展示。不得提供共用金鑰或假分析結果。
+
+
+
+## 分析恢復規則
+- dist/gemini-client.js：依 HTTP、promptFeedback.blockReason、finishReason 分類；STOP 以外不能宣告成功。分別顯示 MAX_TOKENS、RECITATION、SAFETY、INVALID_JSON、TIMEOUT。不得儲存或記錄金鑰、完整請求或原始錯誤回應。
+- 單篇約 6,000 字元／段，最多四條短主張。MAX_TOKENS 先在模型清單回報的容量內提高一次輸出上限（不超過 16,384），仍不足時將片段最多二分三層；小於等於 1,200 字元不再拆分。不可用截斷資料或放寬引用核對換取成功。
+- HTTP 500／502／503／504 指數退避加隨機延遲，最多兩次。遵循 Retry-After；若超過 60 秒，停止讓使用者稍後接續。請求逾時 180 秒不自動重送，避免不明完成狀態的重複計費。
+- analysis-progress.json 保存成功且已核對的片段，synthesis-progress.json 保存已完成概要主題。進度識別含模型、材料、標題與提示規則；變更後不沿用。讀取時重新驗證引用，不信任外部檔案內容。
+- 進度不是完整分析；只有全部完成才更新 analysis.json／synthesis.json。成功儲存後清除暫存。清除暫存需明確確認，不影響 PDF 或已完成分析。
+- 每次最多處理 64 個邏輯片段請求（另有有限重試）；可再次按分析接續。摘要一次一個主題，每個最多三條主張。超過 60,000 字元材料要求減少所選論文，不偷偷截斷。
+- 遇到安全攔截，不拆分規避、不改寫繞過、不自動切換模型；只告知服務回傳原因。
+
+## 多服務商分析
+- dist/ai-client.js 分派 Gemini / OpenAI；dist/openai-client.js 使用 Responses API 與嚴格 JSON Schema，store:false。模型清單不代表結構化生成一定受支援，使用合成引用測試確認。
+- 切換服務商清空金鑰與模型；不自動切換或跨服務傳送資料。傳送確認顯示真正的接收服務商。金鑰仍只存在分頁記憶體。
+- OpenAI 的拒絕、incomplete、額度不足與錯誤 JSON 均不得當成成功；只有 500/502/503/504 最多重試兩次。單篇 max_output_tokens 截斷沿用有限分段，概要截斷停止並保留進度。
+- checkpoint 識別包含服務商（Gemini 沿用原識別、OpenAI 加上前綴）；報告新增 provider，舊資料缺省為 Gemini。
+- 本機自帶金鑰架構沒有開發者共用秘密。若改成多人共用服務，需另建具身份驗證的後端金鑰管理。
+- SUBMISSION.md 已非建置必要檔案，不要求恢復或複製。
